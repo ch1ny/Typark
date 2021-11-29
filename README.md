@@ -1,24 +1,7 @@
-# typark
+# Typark
 
-## Project setup
-```
-yarn install
-```
+很难过，Typora居然收费了。
 
-### Compiles and hot-reloads for development
-```
-yarn serve
-```
+更难过的是我没有美国的信用卡。
 
-### Compiles and minifies for production
-```
-yarn build
-```
-
-### Lints and fixes files
-```
-yarn lint
-```
-
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+自己写了一个简单的 Markdown 编辑器，凑合凑合也能用倒是。

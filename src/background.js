@@ -83,12 +83,12 @@ async function createWindow() {
         { name: 'Markdown File', extensions: ['md', 'markdown', 'mmd', 'mkd', 'mdwn', 'mdown', 'mdx', 'mdtxt', 'apib', 'rmarkdown', 'rmd', 'txt', 'text'] }
       ],
     }).then((res) => {
-      if (res && res.filePaths && res.filePaths.length > 0) {
-        fs.writeFile(res.filePaths[0], data, "utf8", (err) => {
+      if (res && res.filePath) {
+        fs.writeFile(res.filePath, data, "utf8", (err) => {
           if (err) {
             win.webContents.send('savedNewFile', -1);
           } else {
-            win.webContents.send('savedNewFile', 0, res.filePaths[0]);
+            win.webContents.send('savedNewFile', 0, res.filePath);
           }
         })
       }
@@ -102,10 +102,10 @@ async function createWindow() {
         { name: 'HTML', extensions: ['html'] }
       ],
     }).then((res) => {
-      if (res && res.filePaths && res.filePaths.length > 0) {
-        const title = res.filePaths[0].split('/')[res.filePaths[0].split('/').length - 1]
+      if (res && res.filePath) {
+        const title = res.filePath.split('/')[res.filePath.split('/').length - 1]
         let html = `<!doctype html>\n<html>\n<head>\n<meta charset='UTF-8'><meta name='viewport' content='width=device-width initial-scale=1'>\n<link href="https://cdn.bootcss.com/github-markdown-css/2.10.0/github-markdown.min.css" rel="stylesheet">\n<title>${title}</title>\n</head>\n<body>\n<div class="markdown-body">\n${data}\n</div>\n</body>\n</html>`
-        fs.writeFile(res.filePaths[0], html, "utf8", (err) => {
+        fs.writeFile(res.filePath, html, "utf8", (err) => {
           if (err) {
             win.webContents.send('savedAsHtml', -1);
           } else {

@@ -22,10 +22,11 @@
 					<el-dropdown-item command="html">导出为HTML</el-dropdown-item>
 				</el-dropdown-menu>
 			</el-dropdown>
-			<el-dropdown size="mini" trigger="click" placement="bottom-start">
+			<el-dropdown size="mini" trigger="click" placement="bottom-start" @command="helpCommand">
 				<button>帮助(H)</button>
 				<el-dropdown-menu slot="dropdown">
-					<el-dropdown-item>检查更新</el-dropdown-item>
+					<el-dropdown-item command="official">访问官网</el-dropdown-item>
+					<el-dropdown-item command="update">检查更新</el-dropdown-item>
 				</el-dropdown-menu>
 			</el-dropdown>
 		</div>
@@ -57,7 +58,7 @@ export default {
 				ol: true, // 有序列表
 				ul: true, // 无序列表
 				link: true, // 链接
-				imagelink: true, // 图片链接
+				imagelink: false, // 图片链接
 				code: true, // code
 				table: true, // 表格
 				fullscreen: false, // 全屏编辑
@@ -109,6 +110,46 @@ export default {
 						"saveAsHtml",
 						this.$refs.md.d_render
 					);
+					break;
+			}
+		},
+		helpCommand(command) {
+			switch (command) {
+				case "official":
+					window.electron.ipcRenderer.send("openOfficial");
+					break;
+				case "update":
+					fetch(
+						"https://api.github.com/repos/AioliaRegulus/Typark/releases",
+						{
+							method: "GET",
+							mode: "cors",
+						}
+					)
+						.then((response) => {
+							if (response.status === 200) {
+								return response.json();
+							} else {
+								this.$notify({
+									title: "失败",
+									message: "检查更新失败",
+									type: "error",
+								});
+							}
+						})
+						.then((res) => {
+							const tag = res[0].tag_name;
+							let index = tag.indexOf("-");
+							let version = tag.substring(
+								1,
+								index > 1 ? index : tag.length
+							);
+							window.electron.ipcRenderer.send(
+								"getNewVersion",
+								version,
+								res[0].assets[0].browser_download_url
+							);
+						});
 					break;
 			}
 		},
@@ -184,6 +225,24 @@ export default {
 				});
 			}
 		});
+		window.electron.ipcRenderer.on(
+			"hasNewVersion",
+			(e, oldVersion, newVersion, downloadUrl) => {
+				if (oldVersion !== newVersion) {
+					this.$confirm(
+						`当前版本为${oldVersion}，检测到新版本${newVersion}，是否更新？`,
+						"检测到新版本",
+						{
+							confirmButtonText: "更新",
+							cancelButtonText: "取消",
+							type: "warning",
+						}
+					).then(() => {
+						window.location.href = downloadUrl;
+					});
+				}
+			}
+		);
 	},
 };
 </script>

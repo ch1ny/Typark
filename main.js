@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, dialog } = require('electron');
+const { app, BrowserWindow, screen, dialog, shell } = require('electron');
 const fs = require('fs') // 使用fs模块
 const path = require('path');
 let mainWindow = null;
@@ -42,8 +42,8 @@ function createWindow() {
             mainWindow.maximize();
         }
     });
-    ipc.on("login", function () {
-        mainWindow.maximize();
+    ipc.on("quit", function () {
+        app.exit();
     });
     ipc.on("openFile", () => {
         dialog.showOpenDialog({
@@ -117,6 +117,9 @@ function createWindow() {
                 })
             }
         })
+    })
+    ipc.on('openOfficial', () => {
+        shell.openExternal('https://gitee.com/aioliaregulus/typark')
     })
     mainWindow.on('resize', () => {
         mainWindow.webContents.send('resize', mainWindow.isMaximized())

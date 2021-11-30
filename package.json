@@ -1,6 +1,6 @@
 {
   "name": "typark",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve",
@@ -16,6 +16,7 @@
   "dependencies": {
     "core-js": "^3.6.5",
     "electron": "^16.0.2",
+    "electron-updater": "^4.6.1",
     "element-ui": "^2.15.6",
     "mavon-editor": "^2.10.0",
     "vue": "^2.6.11"

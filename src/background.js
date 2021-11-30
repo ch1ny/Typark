@@ -1,9 +1,10 @@
 'use strict'
 
-import { app, protocol, BrowserWindow, screen, dialog } from 'electron'
+import { app, protocol, BrowserWindow, screen, dialog, shell } from 'electron'
 import fs from 'fs'; // 使用fs模块
 import path from 'path';
 import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
+import packageJson from '../package.json'
 
 // import installExtension, { VUEJS_DEVTOOLS } from 'electron-devtools-installer'
 
@@ -30,8 +31,8 @@ async function createWindow() {
   })
   //接收渲染进程的信息
   const ipc = require('electron').ipcMain;
-  ipc.on('quit', function () {
-    app.quit()
+  ipc.on("quit", function () {
+    app.exit();
   });
   ipc.on('min', function () {
     win.minimize();
@@ -42,9 +43,6 @@ async function createWindow() {
     } else {
       win.maximize();
     }
-  });
-  ipc.on("login", function () {
-    win.maximize();
   });
   ipc.on("openFile", () => {
     dialog.showOpenDialog({
@@ -118,6 +116,15 @@ async function createWindow() {
         })
       }
     })
+  })
+  ipc.on('openOfficial', () => {
+    shell.openExternal('https://gitee.com/aioliaregulus/typark')
+  })
+  ipc.on('getNewVersion', (event, version, downloadUrl) => {
+    win.webContents.send('hasNewVersion', packageJson.version, version, downloadUrl)
+  })
+  ipc.on('update', (event, downloadUrl) => {
+
   })
   win.on('resize', () => {
     win.webContents.send('resize', win.isMaximized())

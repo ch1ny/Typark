@@ -2,7 +2,7 @@
 	<div class="App">
 		<header class="head">
 			<img src='./assets/logo.png' alt=" " id="windowLogo" />
-			<span>TypeDown{{filePath?' - ' + filePath.split("/")[filePath.split("/").length - 1]:''}}</span>
+			<span>Typark{{filePath?' - ' + filePath.split("/")[filePath.split("/").length - 1]:''}}</span>
 			<button class="windowBtn" id="closeWindowBtn" @click="closeWindow">
 				<i class="el-icon-close" />
 			</button>

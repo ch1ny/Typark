@@ -76,10 +76,9 @@ async function createWindow() {
     })
   })
   ipc.on('saveNewFile', (event, data) => {
-    dialog.showOpenDialog({
+    dialog.showSaveDialog({
       title: "文件另存为",
-      defaultPath: __dirname,
-      properties: ['promptToCreate'],
+      defaultPath: path.join(__dirname, `${data.substring(0, 10)}.md`),
       filters: [
         { name: 'Markdown File', extensions: ['md', 'markdown', 'mmd', 'mkd', 'mdwn', 'mdown', 'mdx', 'mdtxt', 'apib', 'rmarkdown', 'rmd', 'txt', 'text'] }
       ],
@@ -96,10 +95,9 @@ async function createWindow() {
     })
   })
   ipc.on('saveAsHtml', (event, data) => {
-    dialog.showOpenDialog({
+    dialog.showSaveDialog({
       title: "导出为HTML",
-      defaultPath: __dirname,
-      properties: ['promptToCreate'],
+      defaultPath: path.join(__dirname, `${data.substring(0, 10)}.html`),
       filters: [
         { name: 'HTML', extensions: ['html'] }
       ],

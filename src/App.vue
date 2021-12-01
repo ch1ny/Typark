@@ -7,7 +7,7 @@
 				<i class="el-icon-close" />
 			</button>
 			<button class="windowBtn" id="resizeBtn" @click="resizeWindow">
-				<i class="el-icon-copy-document" />
+				<i :class="maxSize?'el-icon-copy-document':'el-icon-full-screen'" />
 			</button>
 			<button class="windowBtn" id="miniSizeBtn" @click="minWindow">
 				<i class="el-icon-minus" />
@@ -18,8 +18,9 @@
 				<button>文件(F)</button>
 				<el-dropdown-menu slot="dropdown">
 					<el-dropdown-item command="open">打开</el-dropdown-item>
-					<el-dropdown-item command="save">另存为</el-dropdown-item>
-					<el-dropdown-item command="html">导出为HTML</el-dropdown-item>
+					<el-dropdown-item command="save" :disabled="rawText===''">另存为</el-dropdown-item>
+					<el-dropdown-item command="html" :disabled="rawText===''">导出为HTML</el-dropdown-item>
+					<el-dropdown-item command="pdf" :disabled="rawText===''">导出为PDF</el-dropdown-item>
 				</el-dropdown-menu>
 			</el-dropdown>
 			<el-dropdown size="mini" trigger="click" placement="bottom-start" @command="helpCommand">
@@ -30,21 +31,26 @@
 				</el-dropdown-menu>
 			</el-dropdown>
 		</div>
-		<div class="main">
-			<mavon-editor style="height: 100%" :toolbars="markdownOption" v-model="rawText" @save="save" ref="md" />
+		<div class="main" v-loading="outputing" element-loading-text="拼命导出中" element-loading-spinner="el-icon-loading" element-loading-background="rgba(0, 0, 0, 0.8)">
+			<mavon-editor style="height: 100%" :subfield="subfield" defaultOpen="preview" :toolbars="markdownOption" v-model="rawText" @save="save" ref="md" />
 		</div>
 	</div>
 </template>
 
 <script>
+import Html2Canvas from "html2canvas";
+import JsPdf from "jspdf";
+
 export default {
 	name: "App",
 	components: {},
 	data() {
 		return {
+			outputing: false, // 正在导出
 			maxSize: false,
 			rawText: "",
 			filePath: "",
+			subfield: true,
 			markdownOption: {
 				bold: true, // 粗体
 				italic: true, // 斜体
@@ -94,10 +100,11 @@ export default {
 		},
 		fileCommand(command) {
 			switch (command) {
-				case "open":
+				case "open": {
 					window.electron.ipcRenderer.send("openFile");
 					break;
-				case "save":
+				}
+				case "save": {
 					if (this.rawText) {
 						window.electron.ipcRenderer.send(
 							"saveNewFile",
@@ -105,12 +112,94 @@ export default {
 						);
 					}
 					break;
-				case "html":
+				}
+				case "html": {
+					this.outputing = true;
 					window.electron.ipcRenderer.send(
 						"saveAsHtml",
 						this.$refs.md.d_render
 					);
 					break;
+				}
+				case "pdf": {
+					this.outputing = true;
+					let dom = document.querySelector(".v-show-content");
+					let cloneDom = dom.cloneNode(true);
+					// 设置克隆节点的style属性，因为之前的层级为0，我们只需要比被克隆的节点层级低即可。
+					cloneDom.style.height = dom.offsetHeight + "px";
+					cloneDom.style.zIndex = "-1";
+					// 将克隆节点动态追加到body后面。
+					let vNoteWrapper = document.createElement("div");
+					vNoteWrapper.className = "v-note-wrapper markdown-body";
+					vNoteWrapper.append(cloneDom);
+					document.querySelector("body").append(vNoteWrapper);
+					Html2Canvas(vNoteWrapper, {
+						// allowTaint: true,
+						useCORS: true,
+						scale: 4,
+						backgroundColor: "rgb(251, 251, 251)",
+						height: vNoteWrapper.scrollHeight,
+					})
+						.then((canvas) => {
+							// 移除复制的节点
+							document
+								.querySelector("body")
+								.removeChild(vNoteWrapper);
+							let contentWidth = canvas.width;
+							let contentHeight = canvas.height;
+							let pageHeight = (contentWidth / 592.28) * 841.89;
+							let leftHeight = contentHeight;
+							let position = 0;
+							let imgWidth = 595.28;
+							let imgHeight =
+								(592.28 / contentWidth) * contentHeight;
+							let pageData = canvas.toDataURL("image/jpeg", 1.0);
+							let PDF = new JsPdf("", "pt", "a4");
+							if (leftHeight < pageHeight) {
+								PDF.addImage(
+									pageData,
+									"JPEG",
+									0,
+									0,
+									imgWidth,
+									imgHeight
+								);
+							} else {
+								while (leftHeight > 0) {
+									PDF.addImage(
+										pageData,
+										"JPEG",
+										0,
+										position,
+										imgWidth,
+										imgHeight
+									);
+									leftHeight -= pageHeight;
+									position -= 841.89;
+									if (leftHeight > 0) {
+										PDF.addPage();
+									}
+								}
+							}
+							let pdfName;
+							if (this.filePath) {
+								pdfName =
+									this.filePath.split("\\")[
+										this.filePath.split("\\").length - 1
+									];
+							} else {
+								pdfName = this.$refs.md.d_render
+									.replace(/(<([^>]+)>)/g, "")
+									.substring(0, 10);
+							}
+							this.outputing = false;
+							PDF.save(`${pdfName}.pdf`);
+						})
+						.catch(() => {
+							this.subfield = true;
+						});
+					break;
+				}
 			}
 		},
 		helpCommand(command) {
@@ -132,8 +221,9 @@ export default {
 							} else {
 								this.$notify({
 									title: "失败",
-									message: "检查更新失败",
+									message: `更新检测失败 ( -${response.status} )`,
 									type: "error",
+									offset: 10,
 								});
 							}
 						})
@@ -191,14 +281,14 @@ export default {
 					duration: 1000,
 					message: "保存成功",
 					type: "success",
-					showClose: false,
+					offset: 10,
 				});
 			} else {
 				this.$notify({
 					title: "失败",
 					message: "保存失败",
 					type: "error",
-					showClose: false,
+					offset: 10,
 				});
 			}
 		});
@@ -208,27 +298,44 @@ export default {
 			}
 		});
 		window.electron.ipcRenderer.on("savedAsHtml", (e, status) => {
+			this.outputing = false;
 			if (status === 0) {
 				this.$notify({
 					title: "成功",
 					duration: 1000,
 					message: "导出成功",
 					type: "success",
-					showClose: false,
+					offset: 10,
 				});
 			} else {
 				this.$notify({
 					title: "失败",
 					message: "导出失败",
 					type: "error",
-					showClose: false,
+					offset: 10,
 				});
 			}
 		});
 		window.electron.ipcRenderer.on(
 			"hasNewVersion",
 			(e, oldVersion, newVersion, downloadUrl) => {
-				if (oldVersion !== newVersion) {
+				let oldVersions = oldVersion.split(".");
+				let newVersions = newVersion.split(".");
+				let hasNewVersion = true;
+				for (
+					let i = 0;
+					i < Math.min(oldVersions.length, newVersions.length);
+					i++
+				) {
+					if (parseInt(newVersions[i]) < parseInt(oldVersions[i])) {
+						hasNewVersion = false;
+						break;
+					}
+				}
+				if (hasNewVersion && newVersions.length < oldVersions.length) {
+					hasNewVersion = false;
+				}
+				if (hasNewVersion) {
 					this.$confirm(
 						`当前版本为${oldVersion}，检测到新版本${newVersion}，是否更新？`,
 						"检测到新版本",
@@ -237,8 +344,18 @@ export default {
 							cancelButtonText: "取消",
 							type: "warning",
 						}
-					).then(() => {
-						window.location.href = downloadUrl;
+					)
+						.then(() => {
+							window.location.href = downloadUrl;
+						})
+						.catch(() => {});
+				} else {
+					this.$notify({
+						title: "无需更新",
+						duration: 1500,
+						message: `当前${oldVersion}已是最新版本`,
+						type: "success",
+						offset: 10,
 					});
 				}
 			}
@@ -279,7 +396,7 @@ export default {
 	font-size: 12px;
 	height: 2.5em;
 	line-height: 2.5em;
-	background-color: #fafafa;
+	background-image: linear-gradient(to left, #fffeff 0%, #c4c4c4 100%);
 	user-select: none;
 }
 
@@ -290,11 +407,11 @@ export default {
 .windowBtn {
 	-webkit-app-region: no-drag;
 	float: right;
-	height: 2.5em;
+	height: 2.25em;
 	width: 3em;
 	line-height: 2.5em;
 	border: none;
-	background-color: #fafafa;
+	background: rgba(0, 0, 0, 0);
 }
 
 .windowBtn:hover {

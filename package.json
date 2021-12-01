@@ -1,6 +1,6 @@
 {
   "name": "typark",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve",
@@ -18,6 +18,8 @@
     "electron": "^16.0.2",
     "electron-updater": "^4.6.1",
     "element-ui": "^2.15.6",
+    "html2canvas": "^1.3.3",
+    "jspdf": "^2.4.0",
     "mavon-editor": "^2.10.0",
     "vue": "^2.6.11"
   },

@@ -24,6 +24,7 @@ async function createWindow() {
     height: parseInt(screenHeight * 0.8),
     frame: false, // 是否使用默认窗口
     webPreferences: {
+      webSecurity: false,
       nodeIntegration: true,
       contextIsolation: false, // 禁用上下文隔离
       preload: path.join(__dirname, 'preload.js')
@@ -78,7 +79,7 @@ async function createWindow() {
   ipc.on('saveNewFile', (event, data) => {
     dialog.showSaveDialog({
       title: "文件另存为",
-      defaultPath: path.join(__dirname, `${data.substring(0, 10)}.md`),
+      defaultPath: path.join(__dirname, `${data.replace(/\\|\/|\?|\？|\*|\"|\“|\”|\'|\‘|\’|\<|\>|\{|\}|\[|\]|\【|\】|\：|\:|\、|\^|\$|\!|\~|\`|\|/g, '').substring(0, 10)}.md`),
       filters: [
         { name: 'Markdown File', extensions: ['md', 'markdown', 'mmd', 'mkd', 'mdwn', 'mdown', 'mdx', 'mdtxt', 'apib', 'rmarkdown', 'rmd', 'txt', 'text'] }
       ],
@@ -97,14 +98,14 @@ async function createWindow() {
   ipc.on('saveAsHtml', (event, data) => {
     dialog.showSaveDialog({
       title: "导出为HTML",
-      defaultPath: path.join(__dirname, `${data.substring(0, 10)}.html`),
+      defaultPath: path.join(__dirname, `${data.replace(/\\|\/|\?|\？|\*|\"|\“|\”|\'|\‘|\’|\<|\>|\{|\}|\[|\]|\【|\】|\：|\:|\、|\^|\$|\!|\~|\`|\|/g, '').substring(0, 10)}.html`),
       filters: [
         { name: 'HTML', extensions: ['html'] }
       ],
     }).then((res) => {
       if (res && res.filePath) {
-        const title = res.filePath.split('/')[res.filePath.split('/').length - 1]
-        let html = `<!doctype html>\n<html>\n<head>\n<meta charset='UTF-8'><meta name='viewport' content='width=device-width initial-scale=1'>\n<link href="https://cdn.bootcss.com/github-markdown-css/2.10.0/github-markdown.min.css" rel="stylesheet">\n<title>${title}</title>\n</head>\n<body>\n<div class="markdown-body">\n${data}\n</div>\n</body>\n</html>`
+        const title = res.filePath.split('\\')[res.filePath.split('\\').length - 1]
+        let html = `<!doctype html>\n<html>\n<head>\n<meta charset='UTF-8'><meta name='viewport' content='width=device-width initial-scale=1'>\n<link href="https://cdn.bootcss.com/github-markdown-css/2.10.0/github-markdown.min.css" rel="stylesheet">\n<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.3.1/styles/github.min.css" id="md-code-style">\n<title>${title}</title>\n</head>\n<body>\n<div class="markdown-body">\n${data}\n</div>\n</body>\n</html>`
         fs.writeFile(res.filePath, html, "utf8", (err) => {
           if (err) {
             win.webContents.send('savedAsHtml', -1);

@@ -15,11 +15,13 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { secure: true, standard: true } }
 ])
 
+let win;
+
 async function createWindow() {
   const screenWidth = screen.getPrimaryDisplay().workAreaSize.width;
   const screenHeight = screen.getPrimaryDisplay().workAreaSize.height;
   // Create the browser window.
-  const win = new BrowserWindow({
+  win = new BrowserWindow({
     width: parseInt(screenWidth * 0.8),
     height: parseInt(screenHeight * 0.8),
     frame: false, // 是否使用默认窗口
@@ -32,9 +34,6 @@ async function createWindow() {
   })
   //接收渲染进程的信息
   const ipc = require('electron').ipcMain;
-  ipc.on("quit", function () {
-    app.exit();
-  });
   ipc.on('min', function () {
     win.minimize();
   });
@@ -148,6 +147,7 @@ app.on('window-all-closed', () => {
   // On macOS it is common for applications and their menu bar
   // to stay active until the user quits explicitly with Cmd + Q
   if (process.platform !== 'darwin') {
+    win = null;
     app.quit()
   }
 })
@@ -178,11 +178,13 @@ if (isDevelopment) {
   if (process.platform === 'win32') {
     process.on('message', (data) => {
       if (data === 'graceful-exit') {
+        win = null;
         app.quit()
       }
     })
   } else {
     process.on('SIGTERM', () => {
+      win = null;
       app.quit()
     })
   }

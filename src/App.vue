@@ -69,8 +69,8 @@ export default {
 				table: true, // 表格
 				fullscreen: false, // 全屏编辑
 				readmodel: false, // 沉浸式阅读
-				htmlcode: true, // 展示html源码
-				help: false, // 帮助
+				htmlcode: false, // 展示html源码
+				help: true, // 帮助
 				/* 1.3.5 */
 				undo: true, // 上一步
 				redo: true, // 下一步
@@ -90,7 +90,7 @@ export default {
 	},
 	methods: {
 		closeWindow() {
-			window.electron.ipcRenderer.send("quit");
+			window.close();
 		},
 		minWindow() {
 			window.electron.ipcRenderer.send("min");
@@ -204,10 +204,11 @@ export default {
 		},
 		helpCommand(command) {
 			switch (command) {
-				case "official":
+				case "official": {
 					window.electron.ipcRenderer.send("openOfficial");
 					break;
-				case "update":
+				}
+				case "update": {
 					fetch(
 						"https://api.github.com/repos/AioliaRegulus/Typark/releases",
 						{
@@ -241,6 +242,7 @@ export default {
 							);
 						});
 					break;
+				}
 			}
 		},
 		save() {
@@ -332,7 +334,7 @@ export default {
 						break;
 					}
 				}
-				if (hasNewVersion && newVersions.length < oldVersions.length) {
+				if (hasNewVersion && newVersions.length <= oldVersions.length) {
 					hasNewVersion = false;
 				}
 				if (hasNewVersion) {
@@ -396,7 +398,7 @@ export default {
 	font-size: 12px;
 	height: 2.5em;
 	line-height: 2.5em;
-	background-image: linear-gradient(to left, #fffeff 0%, #c4c4c4 100%);
+	background-image: linear-gradient(to right, #c3cfe2 0%, #f5f7fa 60%);
 	user-select: none;
 }
 
@@ -434,6 +436,7 @@ export default {
 
 .toolbars {
 	height: 1.5em;
+	user-select: none;
 }
 
 .toolbars button {

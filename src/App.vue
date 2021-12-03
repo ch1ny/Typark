@@ -13,26 +13,34 @@
 				<i class="el-icon-minus" />
 			</button>
 		</header>
-		<div class="toolbars">
-			<el-dropdown size="mini" trigger="click" placement="bottom-start" @command="fileCommand">
-				<button>文件(F)</button>
-				<el-dropdown-menu slot="dropdown">
-					<el-dropdown-item command="open">打开</el-dropdown-item>
-					<el-dropdown-item command="save" :disabled="rawText===''">另存为</el-dropdown-item>
-					<el-dropdown-item command="html" :disabled="rawText===''">导出为HTML</el-dropdown-item>
-					<el-dropdown-item command="pdf" :disabled="rawText===''">导出为PDF</el-dropdown-item>
-				</el-dropdown-menu>
-			</el-dropdown>
-			<el-dropdown size="mini" trigger="click" placement="bottom-start" @command="helpCommand">
-				<button>帮助(H)</button>
-				<el-dropdown-menu slot="dropdown">
-					<el-dropdown-item command="official">访问官网</el-dropdown-item>
-					<el-dropdown-item command="update">检查更新</el-dropdown-item>
-				</el-dropdown-menu>
-			</el-dropdown>
-		</div>
-		<div class="main" v-loading="outputing" element-loading-text="拼命导出中" element-loading-spinner="el-icon-loading" element-loading-background="rgba(0, 0, 0, 0.8)">
-			<mavon-editor style="height: 100%" :subfield="subfield" defaultOpen="preview" :toolbars="markdownOption" v-model="rawText" @save="save" ref="md" />
+		<div class="body">
+			<div class="toolbars">
+				<el-dropdown size="mini" trigger="click" placement="bottom-start" @command="fileCommand">
+					<button>文件(F)</button>
+					<el-dropdown-menu slot="dropdown">
+						<el-dropdown-item command="open">打开</el-dropdown-item>
+						<el-dropdown-item command="save" :disabled="rawText===''">另存为</el-dropdown-item>
+						<el-dropdown-item command="html" :disabled="rawText===''">导出为HTML</el-dropdown-item>
+						<el-dropdown-item command="pdf" :disabled="rawText===''">导出为PDF</el-dropdown-item>
+					</el-dropdown-menu>
+				</el-dropdown>
+				<el-dropdown size="mini" trigger="click" placement="bottom-start" @command="helpCommand">
+					<button>帮助(H)</button>
+					<el-dropdown-menu slot="dropdown">
+						<el-dropdown-item command="official">访问官网</el-dropdown-item>
+						<el-dropdown-item command="update">检查更新</el-dropdown-item>
+					</el-dropdown-menu>
+				</el-dropdown>
+			</div>
+			<div class="main" v-loading="outputing" element-loading-text="拼命导出中" element-loading-spinner="el-icon-loading" element-loading-background="rgba(0, 0, 0, 0.8)">
+				<mavon-editor style="height: 100%" :subfield="subfield" defaultOpen="preview" :toolbars="markdownOption" v-model="rawText" @save="save" ref="md" />
+
+				<el-dialog :visible="isUpdating" title="更新进度" :modal-append-to-body="false" :close-on-click-modal="false" :close-on-press-escape="false" :show-close="false" width="30%" top="30vh">
+					<div style="text-align: center">
+						<el-progress type="circle" :percentage="downloadPercentage" />
+					</div>
+				</el-dialog>
+			</div>
 		</div>
 	</div>
 </template>
@@ -51,6 +59,8 @@ export default {
 			rawText: "",
 			filePath: "",
 			subfield: true,
+			isUpdating: false,
+			downloadPercentage: 0,
 			markdownOption: {
 				bold: true, // 粗体
 				italic: true, // 斜体
@@ -209,38 +219,7 @@ export default {
 					break;
 				}
 				case "update": {
-					fetch(
-						"https://api.github.com/repos/AioliaRegulus/Typark/releases",
-						{
-							method: "GET",
-							mode: "cors",
-						}
-					)
-						.then((response) => {
-							if (response.status === 200) {
-								return response.json();
-							} else {
-								this.$notify({
-									title: "失败",
-									message: `更新检测失败 ( -${response.status} )`,
-									type: "error",
-									offset: 10,
-								});
-							}
-						})
-						.then((res) => {
-							const tag = res[0].tag_name;
-							let index = tag.indexOf("-");
-							let version = tag.substring(
-								1,
-								index > 1 ? index : tag.length
-							);
-							window.electron.ipcRenderer.send(
-								"getNewVersion",
-								version,
-								res[0].assets[0].browser_download_url
-							);
-						});
+					window.electron.ipcRenderer.send("checkForUpdate");
 					break;
 				}
 			}
@@ -260,108 +239,140 @@ export default {
 				window.electron.ipcRenderer.send("saveNewFile", this.rawText);
 			}
 		},
-	},
-	created() {
-		window.electron.ipcRenderer.on("resize", (event, params) => {
-			this.maxSize = params;
-		});
-		window.electron.ipcRenderer.on(
-			"openedFile",
-			(e, status, path, data) => {
-				if (status === 0) {
-					this.filePath = path;
-					this.rawText = data;
-				} else {
-					console.log("读取失败");
-				}
-			}
-		);
-		window.electron.ipcRenderer.on("savedFile", (e, status) => {
-			if (status === 0) {
-				this.$notify({
-					title: "成功",
-					duration: 1000,
-					message: "保存成功",
-					type: "success",
-					offset: 10,
-				});
-			} else {
-				this.$notify({
-					title: "失败",
-					message: "保存失败",
-					type: "error",
-					offset: 10,
-				});
-			}
-		});
-		window.electron.ipcRenderer.on("savedNewFile", (e, status, path) => {
-			if (status === 0) {
-				this.filePath = path;
-			}
-		});
-		window.electron.ipcRenderer.on("savedAsHtml", (e, status) => {
-			this.outputing = false;
-			if (status === 0) {
-				this.$notify({
-					title: "成功",
-					duration: 1000,
-					message: "导出成功",
-					type: "success",
-					offset: 10,
-				});
-			} else {
-				this.$notify({
-					title: "失败",
-					message: "导出失败",
-					type: "error",
-					offset: 10,
-				});
-			}
-		});
-		window.electron.ipcRenderer.on(
-			"hasNewVersion",
-			(e, oldVersion, newVersion, downloadUrl) => {
-				let oldVersions = oldVersion.split(".");
-				let newVersions = newVersion.split(".");
-				let hasNewVersion = true;
-				for (
-					let i = 0;
-					i < Math.min(oldVersions.length, newVersions.length);
-					i++
-				) {
-					if (parseInt(newVersions[i]) < parseInt(oldVersions[i])) {
-						hasNewVersion = false;
-						break;
+		initIpcRenders() {
+			window.electron.ipcRenderer.on("resize", (event, params) => {
+				this.maxSize = params;
+				localStorage.setItem("maxSize", params);
+			});
+			window.electron.ipcRenderer.on(
+				"openedFile",
+				(e, status, path, data) => {
+					if (status === 0) {
+						this.filePath = path;
+						this.rawText = data;
+					} else {
+						console.log("读取失败");
 					}
 				}
-				if (hasNewVersion && newVersions.length <= oldVersions.length) {
-					hasNewVersion = false;
-				}
-				if (hasNewVersion) {
-					this.$confirm(
-						`当前版本为${oldVersion}，检测到新版本${newVersion}，是否更新？`,
-						"检测到新版本",
-						{
-							confirmButtonText: "更新",
-							cancelButtonText: "取消",
-							type: "warning",
-						}
-					)
-						.then(() => {
-							window.location.href = downloadUrl;
-						})
-						.catch(() => {});
-				} else {
+			);
+			window.electron.ipcRenderer.on("savedFile", (e, status) => {
+				if (status === 0) {
 					this.$notify({
-						title: "无需更新",
-						duration: 1500,
-						message: `当前${oldVersion}已是最新版本`,
+						title: "成功",
+						duration: 1000,
+						message: "保存成功",
 						type: "success",
 						offset: 10,
 					});
+				} else {
+					this.$notify({
+						title: "失败",
+						message: "保存失败",
+						type: "error",
+						offset: 10,
+					});
 				}
-			}
-		);
+			});
+			window.electron.ipcRenderer.on(
+				"savedNewFile",
+				(e, status, path) => {
+					if (status === 0) {
+						this.filePath = path;
+					}
+				}
+			);
+			window.electron.ipcRenderer.on("savedAsHtml", (e, status) => {
+				this.outputing = false;
+				if (status === 0) {
+					this.$notify({
+						title: "成功",
+						duration: 1000,
+						message: "导出成功",
+						type: "success",
+						offset: 10,
+					});
+				} else {
+					this.$notify({
+						title: "失败",
+						message: "导出失败",
+						type: "error",
+						offset: 10,
+					});
+				}
+			});
+			window.electron.ipcRenderer.on(
+				"checkedForUpdate",
+				(e, updateStatus, oldVersion, updateInfo) => {
+					switch (updateStatus) {
+						case -1:
+							this.$notify({
+								title: "失败",
+								message: "检查更新出错",
+								type: "error",
+								offset: 10,
+							});
+							break;
+						case 0:
+							this.$notify({
+								title: "无需更新",
+								message: `当前 ${oldVersion} 为最新版本，无需更新`,
+								type: "success",
+								offset: 10,
+							});
+							break;
+						case 1:
+							this.$confirm(
+								`当前版本 ${oldVersion}，检测到新版本 ${updateInfo.version}，是否更新？`,
+								"检测到新版本",
+								{
+									confirmButtonText: "更新",
+									cancelButtonText: "取消",
+									type: "warning",
+								}
+							)
+								.then(() => {
+									this.downloadPercentage = 0;
+									this.isUpdating = true;
+									window.electron.ipcRenderer.send(
+										"downloadUpdate"
+									);
+								})
+								.catch(() => {});
+							break;
+					}
+				}
+			);
+			window.electron.ipcRenderer.on(
+				"downloadProgress",
+				(event, progressObj) => {
+					console.log(progressObj);
+					this.downloadPercentage =
+						Math.trunc(progressObj.percent) || 0;
+					// this.downloadPercent = progressObj.percent.toFixed(2) || 0
+					console.log(Math.trunc(this.downloadPercentage));
+					console.log(Math.trunc(this.downloadPercentage) === 100);
+					if (Math.trunc(this.downloadPercentage) === 100) {
+						console.log("开始更新...");
+						window.electron.ipcRenderer.on(
+							"isUpdateNow",
+							function () {
+								window.electron.ipcRenderer.send("isUpdateNow");
+							}
+						);
+					}
+				}
+			);
+		},
+	},
+	created() {
+		this.initIpcRenders();
+
+		if (
+			localStorage.getItem("maxSize") &&
+			localStorage.getItem("maxSize") === "true"
+		) {
+			window.electron.ipcRenderer.send("max");
+		}
 	},
 };
 </script>
@@ -400,6 +411,8 @@ export default {
 	line-height: 2.5em;
 	background-image: linear-gradient(to right, #c3cfe2 0%, #f5f7fa 60%);
 	user-select: none;
+	position: relative;
+	z-index: 9999;
 }
 
 .head img {
@@ -414,6 +427,7 @@ export default {
 	line-height: 2.5em;
 	border: none;
 	background: rgba(0, 0, 0, 0);
+	outline: none;
 }
 
 .windowBtn:hover {
@@ -432,6 +446,12 @@ export default {
 #closeWindowBtn:hover {
 	background-color: red;
 	color: white;
+}
+
+.body {
+	width: 100%;
+	height: calc(100% - 2.5em);
+	overflow-y: hidden;
 }
 
 .toolbars {

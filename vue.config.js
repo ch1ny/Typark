@@ -9,6 +9,7 @@ module.exports = {
                 "directories": {
                     "output": "./dist"//输出文件路径
                 },
+                "compression": "maximum",
                 "nsis": {
                     "oneClick": false, // 是否一键安装
                     "allowElevation": true, // 允许请求提升。 如果为false，则用户必须使用提升的权限重新启动安装程序。
@@ -30,7 +31,17 @@ module.exports = {
                             ]
                         }
                     ]
-                }
+                },
+                "extraResources": {
+                    "from": "dist/.icon-ico",
+                    "to": "./"
+                },
+                "publish": [
+                    {
+                        "provider": "generic",
+                        "url": "http://121.4.250.38:8080/update/electron/typark/"
+                    }
+                ]
             },
         }
 

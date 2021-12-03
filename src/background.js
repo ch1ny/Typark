@@ -1,7 +1,8 @@
 'use strict'
 
 import { app, protocol, BrowserWindow, screen, dialog, shell } from 'electron'
-import fs from 'fs'; // 使用fs模块
+import fs from 'fs-extra'; // 使用fs模块
+import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
 import packageJson from '../package.json'
@@ -131,6 +132,72 @@ async function createWindow() {
     win = null
   })
 
+  //= ==============================================================================================================
+  //                            清除每次更新下载的文件，否则无法进行更新
+  //= ==============================================================================================================
+  // updaterCacheDirName的值与src/main/app-update.yml中的updaterCacheDirName值一致，在windows中会创建一个类似
+  // C:\Users\Administrator\AppData\Local\typark\pending文件存储更新下载后的文件"*.exe"和"update-info.json"
+  let updaterCacheDirName = 'typark'
+  const updatePendingPath = path.join(autoUpdater.app.baseCachePath, updaterCacheDirName, 'pending')
+  console.warn(updatePendingPath)
+  fs.emptyDir(updatePendingPath)
+  console.warn(autoUpdater.app.baseCachePath)
+  //==================================================================================================================
+  const message = {
+    error: '检查更新出错',
+    checking: '正在检查更新……',
+    updateAva: '检测到新版本，正在下载……',
+    updateNotAva: '现在使用的就是最新版本，不用更新'
+  }
+  // 设置是否自动下载，默认是true,当点击检测到新版本时，会自动下载安装包，所以设置为false
+  autoUpdater.autoDownload = false
+  // https://github.com/electron-userland/electron-builder/issues/1254
+  if (process.env.NODE_ENV === 'development') {
+    autoUpdater.updateConfigPath = path.join(__dirname, 'latest.yml')
+  } else {
+    autoUpdater.updateConfigPath = path.join(__dirname, '../app-update.yml')
+  }
+  autoUpdater.setFeedURL('http://121.4.250.38:8080/update/electron/typark')
+  autoUpdater.on('error', function () {
+    win.webContents.send('checkedForUpdate', -1)
+  })
+  autoUpdater.on('checking-for-update', function () {
+    win.webContents.send('checkedForUpdate', -2)
+  })
+  autoUpdater.on('update-available', function (info) {
+    win.webContents.send('checkedForUpdate', 1, packageJson.version, info)
+  })
+  autoUpdater.on('update-not-available', function (info) {
+    win.webContents.send('checkedForUpdate', 0, packageJson.version, info)
+  })
+  // 更新下载进度事件
+  autoUpdater.on('download-progress', function (progressObj) {
+    console.warn('触发下载。。。')
+    console.log(progressObj)
+    console.warn(progressObj)
+    win.webContents.send('downloadProgress', progressObj)
+  })
+  autoUpdater.on('update-downloaded', function (event, releaseNotes, releaseName, releaseDate, updateUrl, quitAndUpdate) {
+    ipc.on('isUpdateNow', (e, arg) => {
+      console.warn('开始更新')
+      autoUpdater.quitAndInstall()
+      win.destroy()
+      // callback()
+    })
+    win.webContents.send('isUpdateNow')
+  })
+  ipc.on('checkForUpdate', () => {
+    // 执行自动更新检查
+    console.warn('执行自动更新检查')
+    console.warn(__dirname)
+    autoUpdater.checkForUpdates()
+  })
+  ipc.on('downloadUpdate', () => {
+    // 下载
+    console.warn('开始下载')
+    autoUpdater.downloadUpdate()
+  })
+
   if (process.env.WEBPACK_DEV_SERVER_URL) {
     // Load the url of the dev server if in development mode
     await win.loadURL(process.env.WEBPACK_DEV_SERVER_URL)
@@ -164,11 +231,11 @@ app.on('activate', () => {
 app.on('ready', async () => {
   if (isDevelopment && !process.env.IS_TEST) {
     // Install Vue Devtools
-    try {
-      await installExtension(VUEJS_DEVTOOLS)
-    } catch (e) {
-      console.error('Vue Devtools failed to install:', e.toString())
-    }
+    // try {
+    //   await installExtension(VUEJS_DEVTOOLS)
+    // } catch (e) {
+    //   console.error('Vue Devtools failed to install:', e.toString())
+    // }
   }
   createWindow()
 })

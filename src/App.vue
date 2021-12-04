@@ -2,7 +2,7 @@
 	<div class="App">
 		<header class="head">
 			<img src='./assets/logo.png' alt=" " id="windowLogo" />
-			<span>Typark{{filePath?' - ' + filePath.split("/")[filePath.split("/").length - 1]:''}}</span>
+			<span>Typark{{filePath?' - ' + filePath.split("/")[filePath.split("/").length - 1]:''}}{{hasModified?' •':''}}</span>
 			<button class="windowBtn" id="closeWindowBtn" @click="closeWindow">
 				<i class="el-icon-close" />
 			</button>
@@ -56,6 +56,7 @@ export default {
 			outputing: false, // 正在导出
 			maxSize: false,
 			rawText: "",
+			initRawText: "",
 			filePath: "",
 			subfield: true,
 			isUpdating: false,
@@ -124,8 +125,20 @@ export default {
 				}
 				case "html": {
 					this.outputing = true;
+					let filename = "";
+					if (this.filePath) {
+						filename =
+							this.filePath.split("\\")[
+								this.filePath.split("\\").length - 1
+							];
+						filename = filename.substring(
+							0,
+							filename.lastIndexOf(".")
+						);
+					}
 					window.electron.ipcRenderer.send(
 						"saveAsHtml",
+						filename,
 						this.$refs.md.d_render
 					);
 					break;
@@ -196,6 +209,10 @@ export default {
 									this.filePath.split("\\")[
 										this.filePath.split("\\").length - 1
 									];
+								pdfName = pdfName.substring(
+									0,
+									pdfName.lastIndexOf(".")
+								);
 							} else {
 								pdfName = this.$refs.md.d_render
 									.replace(/(<([^>]+)>)/g, "")
@@ -224,6 +241,7 @@ export default {
 			}
 		},
 		imgAdd(filename, imgfile) {
+			console.log(imgfile);
 			if (imgfile.path !== "") {
 				this.rawText = this.rawText.replace(
 					`![${imgfile._name}](${filename})`,
@@ -267,6 +285,7 @@ export default {
 					if (status === 0) {
 						this.filePath = path;
 						this.rawText = data;
+						this.initRawText = data;
 					} else {
 						console.log("读取失败");
 					}
@@ -281,6 +300,7 @@ export default {
 						type: "success",
 						offset: 10,
 					});
+					this.initRawText = this.rawText;
 				} else {
 					this.$notify({
 						title: "失败",
@@ -295,26 +315,41 @@ export default {
 				(e, status, path) => {
 					if (status === 0) {
 						this.filePath = path;
+						this.initRawText = this.rawText;
 					}
 				}
 			);
-			window.electron.ipcRenderer.on("savedAsHtml", (e, status) => {
+			window.electron.ipcRenderer.on("savedAsHtml", (e, status, err) => {
 				this.outputing = false;
-				if (status === 0) {
-					this.$notify({
-						title: "成功",
-						duration: 1000,
-						message: "导出成功",
-						type: "success",
-						offset: 10,
-					});
-				} else {
-					this.$notify({
-						title: "失败",
-						message: "导出失败",
-						type: "error",
-						offset: 10,
-					});
+				switch (status) {
+					case 0: {
+						this.$notify({
+							title: "成功",
+							duration: 1000,
+							message: "导出成功",
+							type: "success",
+							offset: 10,
+						});
+						break;
+					}
+					case 1: {
+						this.$notify({
+							title: "失败",
+							message: `导出失败！${err}`,
+							type: "error",
+							offset: 10,
+						});
+						break;
+					}
+					case -1: {
+						this.$notify({
+							title: "取消",
+							message: `导出中止！`,
+							type: "warning",
+							offset: 10,
+						});
+						break;
+					}
 				}
 			});
 			window.electron.ipcRenderer.on(
@@ -373,12 +408,12 @@ export default {
 			window.electron.ipcRenderer.on(
 				"downloadProgress",
 				(event, progressObj) => {
-					console.log(progressObj);
+					// console.log(progressObj);
 					this.downloadPercentage =
 						Math.trunc(progressObj.percent) || 0;
-					// this.downloadPercent = progressObj.percent.toFixed(2) || 0
-					console.log(Math.trunc(this.downloadPercentage));
-					console.log(Math.trunc(this.downloadPercentage) === 100);
+					// // this.downloadPercent = progressObj.percent.toFixed(2) || 0
+					// console.log(Math.trunc(this.downloadPercentage));
+					// console.log(Math.trunc(this.downloadPercentage) === 100);
 					if (Math.trunc(this.downloadPercentage) === 100) {
 						console.log("开始更新...");
 						window.electron.ipcRenderer.on(
@@ -393,6 +428,7 @@ export default {
 		},
 	},
 	created() {
+		window.electron.ipcRenderer.send("vue-ready");
 		this.initIpcRenders();
 		window.electron.ipcRenderer.send("argv");
 		if (
@@ -401,6 +437,18 @@ export default {
 		) {
 			window.electron.ipcRenderer.send("max");
 		}
+		const loadingDom = document.querySelector(".loading");
+		setTimeout(() => {
+			loadingDom.style.opacity = 0;
+		}, 2500);
+		setTimeout(() => {
+			document.body.removeChild(loadingDom);
+		}, 3500);
+	},
+	computed: {
+		hasModified() {
+			return this.rawText !== this.initRawText;
+		},
 	},
 };
 </script>
@@ -437,7 +485,7 @@ export default {
 	font-size: 12px;
 	height: 2.5em;
 	line-height: 2.5em;
-	background-image: linear-gradient(to right, #b9b9b9 0%, #ffffff 65%);
+	background-image: linear-gradient(to right, #b9b9b9 0%, #ffffff 75%);
 	user-select: none;
 	position: relative;
 	z-index: 9999;
@@ -479,7 +527,7 @@ export default {
 .body {
 	width: 100%;
 	height: calc(100% - 2.5em);
-	overflow-y: hidden;
+	overflow: hidden;
 }
 
 .toolbars {
@@ -510,5 +558,10 @@ export default {
 
 .markdown-body img {
 	max-height: 100%;
+}
+
+/* 暂时没找到操作 mavon-editor 图片数组的有关接口，所以先直接隐藏图片列表好了 */
+.op-icon .op-image .dropdown-images {
+	display: none;
 }
 </style>

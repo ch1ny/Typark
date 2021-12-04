@@ -19,8 +19,8 @@
 					<button>文件(F)</button>
 					<el-dropdown-menu slot="dropdown">
 						<el-dropdown-item command="open">打开</el-dropdown-item>
-						<el-dropdown-item command="save" :disabled="rawText===''">另存为</el-dropdown-item>
-						<el-dropdown-item command="html" :disabled="rawText===''">导出为HTML</el-dropdown-item>
+						<el-dropdown-item command="save" :disabled="rawText===''" :divided="true">另存为</el-dropdown-item>
+						<el-dropdown-item command="html" :disabled="rawText===''" :divided="true">导出为HTML</el-dropdown-item>
 						<el-dropdown-item command="pdf" :disabled="rawText===''">导出为PDF</el-dropdown-item>
 					</el-dropdown-menu>
 				</el-dropdown>
@@ -33,8 +33,7 @@
 				</el-dropdown>
 			</div>
 			<div class="main" v-loading="outputing" element-loading-text="拼命导出中" element-loading-spinner="el-icon-loading" element-loading-background="rgba(0, 0, 0, 0.8)">
-				<mavon-editor style="height: 100%" :subfield="subfield" defaultOpen="preview" :toolbars="markdownOption" v-model="rawText" @save="save" ref="md" />
-
+				<mavon-editor style="height: 100%; width: 100%;" :subfield="subfield" defaultOpen="preview" :toolbars="markdownOption" :xssOptions="false" v-model="rawText" @save="save" ref="md" @imgAdd="imgAdd" />
 				<el-dialog :visible="isUpdating" title="更新进度" :modal-append-to-body="false" :close-on-click-modal="false" :close-on-press-escape="false" :show-close="false" width="30%" top="30vh">
 					<div style="text-align: center">
 						<el-progress type="circle" :percentage="downloadPercentage" />
@@ -74,7 +73,7 @@ export default {
 				ol: true, // 有序列表
 				ul: true, // 无序列表
 				link: true, // 链接
-				imagelink: false, // 图片链接
+				imagelink: true, // 图片链接
 				code: true, // code
 				table: true, // 表格
 				fullscreen: false, // 全屏编辑
@@ -224,6 +223,24 @@ export default {
 				}
 			}
 		},
+		imgAdd(filename, imgfile) {
+			if (imgfile.path !== "") {
+				this.rawText = this.rawText.replace(
+					`![${imgfile._name}](${filename})`,
+					`![${imgfile._name}](${imgfile.path.replace(/\\/g, "/")})`
+				);
+			} else {
+				window.electron.ipcRenderer.send(
+					"pastePicture",
+					imgfile.miniurl.split(",")[1],
+					imgfile.type.split("/")[1],
+					new Date().valueOf(),
+					filename,
+					imgfile._name
+				);
+			}
+			// }
+		},
 		save() {
 			/**
 			 * value: 原生 md 文本
@@ -301,6 +318,17 @@ export default {
 				}
 			});
 			window.electron.ipcRenderer.on(
+				"pastedPicture",
+				(e, pasteStatus, filepath, filename, tagname) => {
+					if (pasteStatus === 0) {
+						this.rawText = this.rawText.replace(
+							`![${tagname}](${filename})`,
+							`![${tagname}](${filepath.replace(/\\/g, "/")})`
+						);
+					}
+				}
+			);
+			window.electron.ipcRenderer.on(
 				"checkedForUpdate",
 				(e, updateStatus, oldVersion, updateInfo) => {
 					switch (updateStatus) {
@@ -366,7 +394,7 @@ export default {
 	},
 	created() {
 		this.initIpcRenders();
-
+		window.electron.ipcRenderer.send("argv");
 		if (
 			localStorage.getItem("maxSize") &&
 			localStorage.getItem("maxSize") === "true"
@@ -409,7 +437,7 @@ export default {
 	font-size: 12px;
 	height: 2.5em;
 	line-height: 2.5em;
-	background-image: linear-gradient(to right, #c3cfe2 0%, #f5f7fa 60%);
+	background-image: linear-gradient(to right, #b9b9b9 0%, #ffffff 65%);
 	user-select: none;
 	position: relative;
 	z-index: 9999;
@@ -468,11 +496,19 @@ export default {
 	background: #e0e0e0;
 }
 
+.el-dropdown-menu {
+	user-select: none;
+}
+
 .main {
 	-webkit-app-region: no-drag;
 	width: 100vw;
 	height: calc(100vh - 4em);
 	overflow-x: hidden;
 	overflow-y: overlay;
+}
+
+.markdown-body img {
+	max-height: 100%;
 }
 </style>

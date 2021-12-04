@@ -33,8 +33,20 @@ async function createWindow() {
       preload: path.join(__dirname, 'preload.js')
     }
   })
+
   //接收渲染进程的信息
   const ipc = require('electron').ipcMain;
+  ipc.on('argv', () => {
+    if (process.argv[1]) {
+      fs.readFile(process.argv[1], "utf8", (err, data) => {
+        if (err) {
+          win.webContents.send('openedFile', -1)
+        } else {
+          win.webContents.send('openedFile', 0, process.argv[1], data)
+        }
+      })
+    }
+  })
   ipc.on('min', function () {
     win.minimize();
   });
@@ -116,6 +128,30 @@ async function createWindow() {
       }
     })
   })
+  ipc.on('pastePicture', (event, imgdata, imgtype, timestamp, filename, tagname) => {
+    let destpath
+    if (process.env.NODE_ENV === 'development') {
+      destpath = path.join(__dirname, 'user-images')
+    } else {
+      destpath = path.join(__dirname, '../user-images')
+    }
+    console.log(`destpath = ${destpath}`);
+    const dirExists = fs.pathExistsSync(destpath)
+    if (!dirExists) {
+      fs.mkdirSync(destpath)
+    }
+    let exists = fs.existsSync(path.join(destpath, `typark${timestamp}.${imgtype}`))
+    while (exists) {
+      exists = fs.existsSync(path.join(destpath, `typark${++timestamp}.${imgtype}`))
+    }
+    fs.writeFile(path.join(destpath, `typark${timestamp}.${imgtype}`), Buffer.from(imgdata, 'base64'), (err) => {
+      if (err) {
+        win.webContents.send('pastedPicture', -1);
+      } else {
+        win.webContents.send('pastedPicture', 0, path.join(destpath, `typark${timestamp}.${imgtype}`), filename, tagname);
+      }
+    })
+  })
   ipc.on('openOfficial', () => {
     shell.openExternal('https://gitee.com/aioliaregulus/typark')
   })
@@ -125,6 +161,8 @@ async function createWindow() {
   ipc.on('update', (event, downloadUrl) => {
 
   })
+
+
   win.on('resize', () => {
     win.webContents.send('resize', win.isMaximized())
   })
